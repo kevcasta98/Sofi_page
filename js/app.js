@@ -634,7 +634,6 @@ Yo estoy aquí. Siempre.`,
 — Que me sorprende cada día con algo nuevo que aprendiste o descubriste
 — Que me hacés sentir que todo es posible
 — Que me hacés sentir amado, siempre
-— 
 — Que decidiste ir a votar ese día
 
 Podría seguir, Sofi, pero creo que entiendes la idea.`,
