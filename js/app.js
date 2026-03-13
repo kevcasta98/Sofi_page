@@ -560,14 +560,14 @@ const cartasData = [
     preview: 'Lo que quiero que sepas desde el primer momento...',
     locked: false,
     saludo: 'Mi Osita,',
-    body: `Quiero que sepas que esta página existe porque no soy muy bueno con las palabras habladas, pero contigo, Sofi, he descubierto que vale la pena intentarlo.
+    body: `Quiero que sepas que esta página existe porque no soy muy bueno con las palabras, pero contigo, Sofi, he descubierto que vale la pena intentarlo.
 
-Hay algo en vos que hace que todo sea diferente. Cuando dibujás, cuando te reís con tus amigos, cuando me contás de un libro que te gustó, cuando tarareás Matsuri sin darte cuenta — en todos esos momentos pienso lo afortunado que soy.
+Hay algo en ti que hace que todo sea diferente. Cuando te riés con tus amigos, cuando me cuentas de un libro que te gustó, cuando me miras con ese brillos en tus ojos, cuando estas cansadisima y aun así me dedicas tiempo — en todos esos momentos pienso lo afortunado que soy.
 
 Esta es mi forma de decirte que te veo. Que me importás. Que me alegra muchísimo que hayamos ido a votar juntos ese día.
 
 Con todo mi cariño,`,
-    firma: 'El que te construyó un universo 💜'
+    firma: 'Tu fan numero uno 💜'
   },
   {
     id: 2,
@@ -606,32 +606,38 @@ Aquí seguimos, y ojalá sigamos así por mucho, mucho tiempo más.`,
     saludo: 'Oye, Osita,',
     body: `Si estás leyendo esto es porque estás pasando por un momento difícil. Y quiero que sepas que está bien. Los días grises existen para todos.
 
-Pero también quiero que recuerdes todo lo que sos, Sofi: una persona que dibuja mundos, que se emociona con la música, que ama a sus amigos, que trabaja duro en el Walt Whitman Center, que lee y aprende y crece.
+Pero también quiero que recuerdes todo lo que eres, Sofi para mi eres una persona que se emociona con la música, que ama a sus amigos, que trabaja duro, que lee, aprende y crece.
 
 Eso no desaparece en los días malos. Solo descansa.
 
 Yo estoy aquí. Siempre.`,
-    firma: 'Tu persona favorita (espero) 💜'
+    firma: 'Te amo mucho 💜'
   },
   {
     id: 5,
     date: 'Una sorpresa',
-    title: 'Lo que más me gusta de Sofi',
-    preview: 'Una lista que hice pensando en vos...',
+    title: 'Lo que más me gusta de ti',
+    preview: 'Una lista que hice pensando en ti...',
     locked: false,
     saludo: 'Osita,',
-    body: `Aquí va una lista (incompleta) de cosas que me encantan de vos:
+    body: `Aquí va una lista de cosas que me encantan de ti:
 
 — La forma en que te emocionás cuando hablás de algo que te gusta
-— Tu capacidad de crear arte desde nada
-— Que trabajás en un lugar que conecta culturas
-— Que los gatitos te hacen feliz (y a mí me hace feliz verte así)
-— Tu playlist — de Monsta X a Fujii Kaze, tiene mucha personalidad
-— Que sos de las personas que terminan los libros que empiezan
-— Tu risa cuando jugamos algo
+— Que trabajás en un lugar maravilloso con personas magnificas
+— Que los gatitos te hacen feliz.
+— Que eres de las personas que terminan los libros que empiezan
+— Tu risa cuando jugamos algo juntos
+— Tu forma de ser tan dedicada a tus amigos y conmigo
+— Que me enseñaste a amar de verdad 
+— Que me apoyás en mis cosas, aunque no las entiendas del todo
+— Que me hacés querer ser mejor
+— Que me sorprende cada día con algo nuevo que aprendiste o descubriste
+— Que me hacés sentir que todo es posible
+— Que me hacés sentir amado, siempre
+— 
 — Que decidiste ir a votar ese día
 
-Podría seguir, Sofi, pero creo que entendés la idea.`,
+Podría seguir, Sofi, pero creo que entiendes la idea.`,
     firma: 'Con mucho amor 💜'
   },
   {
