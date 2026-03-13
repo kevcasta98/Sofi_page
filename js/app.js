@@ -202,7 +202,6 @@ document.addEventListener('click', e => {
 let momentToEdit = null;
 
 function openAddMoment() {
-  if (!isAdmin) return;
   momentToEdit = null;
   momentPhotoData = null;
   document.getElementById('momentTitle').value = '';
@@ -248,13 +247,13 @@ function previewMomentPhoto(input) {
 }
 
 function saveMoment() {
-  if (!isAdmin) return;
   const title = document.getElementById('momentTitle').value.trim();
   const date  = document.getElementById('momentDate').value.trim();
   const desc  = document.getElementById('momentDesc').value.trim();
   if (!title) { showToast('Escribí un título 💜'); return; }
 
   if (momentToEdit) {
+    if (!isAdmin) { showToast('Solo admins pueden editar 🔐'); return; }
     // Editing mode
     momentToEdit.title = title;
     momentToEdit.date = date;
@@ -281,6 +280,7 @@ function deleteMoment(id) {
   moments = moments.filter(m => m.id !== id);
   saveData();
   renderTimeline();
+  showToast('Momento eliminado 🗑️');
 }
 
 function renderTimeline() {
@@ -304,7 +304,7 @@ function renderTimeline() {
         <button onclick="editMoment(${m.id})" style="flex:1;background:rgba(168,85,247,0.2);border:1px solid rgba(168,85,247,0.4);color:#d8b4fe;padding:0.4rem;border-radius:4px;font-family:'DM Mono',monospace;font-size:0.7rem;cursor:pointer;transition:all 0.2s;">✎ Editar</button>
         <button onclick="deleteMoment(${m.id})" style="flex:1;background:rgba(248,113,113,0.2);border:1px solid rgba(248,113,113,0.4);color:#f87171;padding:0.4rem;border-radius:4px;font-family:'DM Mono',monospace;font-size:0.7rem;cursor:pointer;transition:all 0.2s;">✕ Eliminar</button>
       </div>
-    ` : `<button class="tl-delete" onclick="deleteMoment(${m.id})">✕ Eliminar</button>`;
+    ` : '';
     item.innerHTML = `
       <div class="timeline-item-dot"></div>
       ${m.photo ? `
@@ -316,7 +316,7 @@ function renderTimeline() {
         <div class="tl-date">${m.date || ''}</div>
         <h3 class="tl-title">${m.title}</h3>
         <p class="tl-desc">${m.desc || ''}</p>
-        ${isAdmin ? adminButtons : '<button class="tl-delete" onclick="deleteMoment(' + m.id + ')">✕ Eliminar</button>'}
+        ${adminButtons}
       </div>
     `;
     container.appendChild(item);
