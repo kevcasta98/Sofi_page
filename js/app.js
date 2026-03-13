@@ -199,13 +199,39 @@ document.addEventListener('click', e => {
 // ══════════════════════════════════════
 // TIMELINE
 // ══════════════════════════════════════
+let momentToEdit = null;
+
 function openAddMoment() {
   if (!isAdmin) return;
+  momentToEdit = null;
   momentPhotoData = null;
   document.getElementById('momentTitle').value = '';
   document.getElementById('momentDate').value = '';
   document.getElementById('momentDesc').value = '';
   document.getElementById('momentPhotoPreview').innerHTML = '<span style="font-size:2rem;">📸</span><span>Subir foto</span>';
+  document.querySelector('.modal-box .modal-title').textContent = '📸 Nuevo momento';
+  openModal('momentModal');
+}
+
+function editMoment(id) {
+  if (!isAdmin) return;
+  momentToEdit = moments.find(m => m.id === id);
+  if (!momentToEdit) return;
+  
+  document.getElementById('momentTitle').value = momentToEdit.title;
+  document.getElementById('momentDate').value = momentToEdit.date || '';
+  document.getElementById('momentDesc').value = momentToEdit.desc || '';
+  document.querySelector('.modal-box .modal-title').textContent = '✎ Editar momento';
+  
+  if (momentToEdit.photo) {
+    momentPhotoData = momentToEdit.photo;
+    document.getElementById('momentPhotoPreview').innerHTML =
+      `<img src="${momentPhotoData}" style="max-height:120px;max-width:100%;">`;
+  } else {
+    momentPhotoData = null;
+    document.getElementById('momentPhotoPreview').innerHTML = '<span style="font-size:2rem;">📸</span><span>Subir foto</span>';
+  }
+  
   openModal('momentModal');
 }
 
@@ -228,11 +254,25 @@ function saveMoment() {
   const desc  = document.getElementById('momentDesc').value.trim();
   if (!title) { showToast('Escribí un título 💜'); return; }
 
-  moments.push({ id: Date.now(), title, date, desc, photo: momentPhotoData });
+  if (momentToEdit) {
+    // Editing mode
+    momentToEdit.title = title;
+    momentToEdit.date = date;
+    momentToEdit.desc = desc;
+    if (momentPhotoData) {
+      momentToEdit.photo = momentPhotoData;
+    }
+    showToast('Momento actualizado ✎ 💜');
+  } else {
+    // Create mode
+    moments.push({ id: Date.now(), title, date, desc, photo: momentPhotoData });
+    showToast('Momento guardado 💜');
+  }
+  
   saveData();
   renderTimeline();
   closeModal('momentModal');
-  showToast('Momento guardado 💜');
+  momentToEdit = null;
 }
 
 function deleteMoment(id) {
@@ -259,6 +299,12 @@ function renderTimeline() {
   moments.forEach((m, i) => {
     const item = document.createElement('div');
     item.className = 'timeline-item reveal';
+    const adminButtons = isAdmin ? `
+      <div style="display:flex;gap:0.5rem;margin-top:1rem;">
+        <button onclick="editMoment(${m.id})" style="flex:1;background:rgba(168,85,247,0.2);border:1px solid rgba(168,85,247,0.4);color:#d8b4fe;padding:0.4rem;border-radius:4px;font-family:'DM Mono',monospace;font-size:0.7rem;cursor:pointer;transition:all 0.2s;">✎ Editar</button>
+        <button onclick="deleteMoment(${m.id})" style="flex:1;background:rgba(248,113,113,0.2);border:1px solid rgba(248,113,113,0.4);color:#f87171;padding:0.4rem;border-radius:4px;font-family:'DM Mono',monospace;font-size:0.7rem;cursor:pointer;transition:all 0.2s;">✕ Eliminar</button>
+      </div>
+    ` : `<button class="tl-delete" onclick="deleteMoment(${m.id})">✕ Eliminar</button>`;
     item.innerHTML = `
       <div class="timeline-item-dot"></div>
       ${m.photo ? `
@@ -270,7 +316,7 @@ function renderTimeline() {
         <div class="tl-date">${m.date || ''}</div>
         <h3 class="tl-title">${m.title}</h3>
         <p class="tl-desc">${m.desc || ''}</p>
-        <button class="tl-delete" onclick="deleteMoment(${m.id})">✕ Eliminar</button>
+        ${isAdmin ? adminButtons : '<button class="tl-delete" onclick="deleteMoment(' + m.id + ')">✕ Eliminar</button>'}
       </div>
     `;
     container.appendChild(item);
