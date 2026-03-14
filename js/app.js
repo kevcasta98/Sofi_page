@@ -14,6 +14,7 @@ let selectedBook = null;
 let currentRating = 0;
 let momentPhotoData = null;
 let bookToEdit = null;
+let momentToEdit = null;
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', () => {
@@ -151,6 +152,8 @@ function logoutAdmin() {
   document.querySelector('.admin-btn').textContent = '⚙';
   document.querySelector('.admin-btn').title = 'Modo edición';
   showToast('Sesión cerrada 🔒');
+  renderTimeline();
+  renderBooks();
 }
 
 // ══════════════════════════════════════
@@ -208,6 +211,27 @@ function openAddMoment() {
   document.getElementById('momentDesc').value = '';
   document.getElementById('momentPhotoPreview').innerHTML = '<span style="font-size:2rem;">📸</span><span>Subir foto</span>';
   document.querySelector('.modal-box .modal-title').textContent = '📸 Nuevo momento';
+  openModal('momentModal');
+}
+
+function editMoment(id) {
+  momentToEdit = moments.find(m => m.id === id);
+  if (!momentToEdit) return;
+
+  document.getElementById('momentTitle').value = momentToEdit.title || '';
+  document.getElementById('momentDate').value = momentToEdit.date || '';
+  document.getElementById('momentDesc').value = momentToEdit.desc || '';
+  
+  if (momentToEdit.photo) {
+    momentPhotoData = momentToEdit.photo;
+    document.getElementById('momentPhotoPreview').innerHTML =
+      `<img src="${momentToEdit.photo}" style="max-height:120px;max-width:100%;">`;
+  } else {
+    momentPhotoData = null;
+    document.getElementById('momentPhotoPreview').innerHTML = '<span style="font-size:2rem;">📸</span><span>Subir foto</span>';
+  }
+  
+  document.querySelector('.modal-box .modal-title').textContent = '✎ Editar momento';
   openModal('momentModal');
 }
 
@@ -279,6 +303,7 @@ function renderTimeline() {
     item.className = 'timeline-item reveal';
     const adminButtons = isAdmin ? `
       <div style="display:flex;gap:0.5rem;margin-top:1rem;">
+        <button onclick="editMoment(${m.id})" style="flex:1;background:rgba(168,85,247,0.2);border:1px solid rgba(168,85,247,0.4);color:#d8b4fe;padding:0.4rem;border-radius:4px;font-family:'DM Mono',monospace;font-size:0.7rem;cursor:pointer;transition:all 0.2s;">✎ Editar</button>
         <button onclick="deleteMoment(${m.id})" style="flex:1;background:rgba(248,113,113,0.2);border:1px solid rgba(248,113,113,0.4);color:#f87171;padding:0.4rem;border-radius:4px;font-family:'DM Mono',monospace;font-size:0.7rem;cursor:pointer;transition:all 0.2s;">✕ Eliminar</button>
       </div>
     ` : '';
