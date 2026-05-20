@@ -19,8 +19,6 @@
 <div class="orb" style="width:450px;height:450px;background:#581c87;bottom:5%;left:-80px;--d:20s;--tx:40px;--ty:-50px;"></div>
 <div class="orb" style="width:350px;height:350px;background:#7c3aed;top:45%;right:15%;--d:24s;--tx:-25px;--ty:60px;opacity:0.07;"></div>
 
-
-
 <!-- NAV -->
 <nav id="mainNav">
   <div class="nav-logo">
@@ -75,7 +73,7 @@
     <div class="vote-card">
       <div class="vote-ribbon">Primera Cita</div>
       <div class="vote-stamp-row">
-                <span class="vote-stamp-text">Guatemala · Elecciones</span>
+        <span class="vote-stamp-text">Guatemala · Elecciones</span>
       </div>
       <h3 class="vote-title">"El día que fuimos a votar y sin querer cambiamos todo"</h3>
       <p class="vote-body">Quién hubiera pensado que un acto cívico tan ordinario sería el inicio de la historia más especial de mi vida. Contigo, Sofi, hasta lo más sencillo se vuelve memorable.</p>
@@ -118,7 +116,7 @@
     <div class="gusto-card" data-color="#9333ea">
       <span class="gc-icon">🎨</span>
       <h3 class="gc-name">Arte & Pintura</h3>
-      <p class="gc-desc">Ves el mundo diferente. Lo conviertes en arte. Esa capacidad de crear algo de la nada es una de las cosas más hermosas que tienes espero que retomes tu hobby.</p>
+      <p class="gc-desc">Ves el mundo diferente. Lo conviertes en arte. Esa capacidad de crear algo de la nada es una de las cosas más hermosas que tienes. Espero que retomes tu hobby.</p>
     </div>
 
     <div class="gusto-card" data-color="#7c3aed">
@@ -139,6 +137,7 @@
       <p class="gc-desc">Paseos, amigos, comida rica, lugares nuevos. Disfrutás la vida de verdad y eso es contagioso.</p>
     </div>
   </div>
+</section>
 
 <!-- ══════════ TIMELINE DE FOTOS ══════════ -->
 <section id="timeline">
@@ -149,7 +148,6 @@
     <p class="section-note">Una línea del tiempo de todo lo que hemos vivido juntos.</p>
   </div>
 
-  <!-- Admin bar (only visible when logged in) -->
   <div class="timeline-admin-bar" id="timelineAdminBar" style="display:none;">
     <button class="tab-admin-btn" onclick="openAddMoment()">+ Agregar momento</button>
     <span class="admin-badge">✓ Modo edición activo</span>
@@ -157,7 +155,6 @@
 
   <div class="timeline-container" id="timelineContainer">
     <div class="timeline-line"></div>
-    <!-- Moments rendered by JS -->
   </div>
 
   <div class="timeline-empty" id="timelineEmpty" style="display:none;">
@@ -194,9 +191,7 @@
     </button>
   </div>
 
-  <div class="books-shelf" id="bookShelf">
-    <!-- books rendered by JS -->
-  </div>
+  <div class="books-shelf" id="bookShelf"></div>
 </section>
 
 <!-- ══════════ CARTAS ══════════ -->
@@ -208,9 +203,7 @@
     <p class="section-note">Algunas cartas se abren hoy. Otras tienen su momento especial. Cada una fue escrita pensando solo en ti.</p>
   </div>
 
-  <div class="cartas-grid" id="cartasGrid">
-    <!-- rendered by JS -->
-  </div>
+  <div class="cartas-grid" id="cartasGrid"></div>
 </section>
 
 <!-- ══════════ FINAL ══════════ -->
@@ -220,6 +213,31 @@
     <h2 class="final-title">Para siempre,<br><em>mi Osita</em></h2>
     <p class="final-text">Esta página no termina aquí. Crece con nosotros, con cada libro que leés, cada foto que tomamos, cada momento que vivimos. Es nuestra.</p>
     <div class="final-sig">Con todo mi amor — tu ingeniero favorito 💜</div>
+  </div>
+</section>
+
+<!-- ══════════ PROPUESTA ══════════ -->
+<section id="propuesta">
+  <!-- Floating petals injected by JS -->
+  <div class="propuesta-inner">
+    <span class="propuesta-ornament">✦ ✦ ✦</span>
+    <p class="propuesta-label">Una pregunta muy importante</p>
+
+    <div id="propuestaQuestion">
+      <h2 class="propuesta-question">
+        ¿Querés volver<br><em>a ser mi novia?</em>
+      </h2>
+      <div class="propuesta-btns">
+        <button class="btn-yes" onclick="sayYes()">Sí, quiero 💜</button>
+        <button class="btn-no" id="btnNo" onmouseenter="runAway(this)" onclick="runAway(this)">No...</button>
+      </div>
+    </div>
+
+    <div class="propuesta-response" id="propuestaResponse">
+      <span class="response-heart">💜</span>
+      <p class="response-text">Sabía que ibas a decir que sí, Osita</p>
+      <p class="response-sub">Gracias por elegirme otra vez 💜</p>
+    </div>
   </div>
 </section>
 
@@ -239,7 +257,7 @@
     <div class="modal-btns">
       <button class="btn-primary" onclick="checkAdmin()">Entrar</button>
     </div>
-    <p class="modal-hint" id="adminError" style="color:#f87171;font-size:0.75rem;margin-top:0.75rem;display:none;">PIN incorrecto 💜</p>
+    <p id="adminError" style="color:#f87171;font-size:0.75rem;margin-top:0.75rem;display:none;font-family:var(--font-mono);">PIN incorrecto 💜</p>
   </div>
 </div>
 
@@ -247,7 +265,7 @@
 <div class="modal-overlay" id="momentModal">
   <div class="modal-box">
     <button class="modal-close" onclick="closeModal('momentModal')">✕</button>
-    <h3 class="modal-title">Nuevo Momento</h3>
+    <h3 class="modal-title" id="momentModalTitle">Nuevo Momento</h3>
     <input type="text" id="momentTitle" placeholder="Título (ej: Nuestro primer paseo)" class="modal-input">
     <input type="text" id="momentDate" placeholder="Fecha (ej: Marzo 2024)" class="modal-input">
     <textarea id="momentDesc" placeholder="Contá qué pasó..." class="modal-textarea"></textarea>
@@ -269,7 +287,7 @@
 <div class="modal-overlay" id="bookModal">
   <div class="modal-box wide">
     <button class="modal-close" onclick="closeModal('bookModal')">✕</button>
-    <h3 class="modal-title">Agregar un libro</h3>
+    <h3 class="modal-title" id="bookModalTitle">Agregar un libro</h3>
     <div class="book-search-row">
       <input type="text" id="bookSearchInput" placeholder="Buscá el libro por título o autor..." class="modal-input">
       <button class="btn-search" onclick="searchBook()">🔍 Buscar</button>
