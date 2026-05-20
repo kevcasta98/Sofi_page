@@ -722,7 +722,7 @@ section {
   text-align: center;
   background: radial-gradient(ellipse at center, rgba(109,40,217,0.18) 0%, rgba(13,6,24,0) 70%);
   border-top: 1px solid rgba(109,40,217,0.15);
-  position: relative;
+  position: absolute;
   overflow: hidden;
 }
 
@@ -842,7 +842,7 @@ section {
 
 /* no button chase */
 .btn-no.running {
-  position: fixed;
+  position: absolute;
   transition: top 0.15s ease, left 0.15s ease;
   z-index: 9990;
 }
