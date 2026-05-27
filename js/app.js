@@ -6,7 +6,7 @@
 
 // ─── CONFIGURACIÓN SUPABASE ───────────────────────────────────────────────────
 // Reemplazá estas dos líneas con tus credenciales reales de Settings → API
-const SUPABASE_URL  = 'https://fkkwdhzzbubezoyhgmjr.supabase.co/rest/v1/';
+const SUPABASE_URL  = 'https://fkkwdhzzbubezoyhgmjr.supabase.co';
 const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZra3dkaHp6YnViZXpveWhnbWpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NDM5NjAsImV4cCI6MjA5NTQxOTk2MH0.Uwf_-6SjhfGhCsXFUyUGX4Gbqj93q4YQcQhKlRzv2gc';
 // ─────────────────────────────────────────────────────────────────────────────
 
