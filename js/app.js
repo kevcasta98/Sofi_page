@@ -1,32 +1,219 @@
 /* ══════════════════════════════════════
    SOFI'S UNIVERSE — app.js
    Books · Timeline · Letters · Admin · Propuesta
+   Data: Supabase (books + moments tables, Storage for photos)
 ══════════════════════════════════════ */
+
+// ─── CONFIGURACIÓN SUPABASE ───────────────────────────────────────────────────
+// Reemplazá estas dos líneas con tus credenciales reales de Settings → API
+const SUPABASE_URL  = 'https://fkkwdhzzbubezoyhgmjr.supabase.co/rest/v1/';
+const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZra3dkaHp6YnViZXpveWhnbWpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NDM5NjAsImV4cCI6MjA5NTQxOTk2MH0.Uwf_-6SjhfGhCsXFUyUGX4Gbqj93q4YQcQhKlRzv2gc';
+// ─────────────────────────────────────────────────────────────────────────────
 
 const ADMIN_PIN = '3010';
 
-let isAdmin = false;
-let books = [];
-let moments = [];
-let selectedBook = null;
-let currentRating = 0;
-let momentPhotoData = null;
-let bookToEdit = null;
-let momentToEdit = null;
+let isAdmin  = false;
+let books    = [];
+let moments  = [];
+let selectedBook   = null;
+let currentRating  = 0;
+let momentPhotoFile = null;   // File object (no más base64)
+let momentPhotoData = null;   // URL previa (para edición)
+let bookToEdit    = null;
+let momentToEdit  = null;
 
-document.addEventListener('DOMContentLoaded', () => {
+// ── Helpers Supabase fetch ────────────────────────────────────────────────────
+async function sbFetch(path, options = {}) {
+  const url = `${SUPABASE_URL}/rest/v1/${path}`;
+  const headers = {
+    'apikey':        SUPABASE_KEY,
+    'Authorization': `Bearer ${SUPABASE_KEY}`,
+    'Content-Type':  'application/json',
+    'Prefer':        'return=representation',
+    ...options.headers
+  };
+  const res = await fetch(url, { ...options, headers });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Supabase error ${res.status}: ${err}`);
+  }
+  // DELETE devuelve 204 sin body
+  if (res.status === 204) return [];
+  return res.json();
+}
+
+// Sube una imagen al bucket y devuelve la URL pública
+async function uploadPhoto(file, oldUrl = null) {
+  // Borramos la foto anterior si existe
+  if (oldUrl) {
+    const oldPath = oldUrl.split('/moments-photos/')[1];
+    if (oldPath) {
+      await fetch(`${SUPABASE_URL}/storage/v1/object/moments-photos/${oldPath}`, {
+        method: 'DELETE',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+    }
+  }
+
+  const ext      = file.name.split('.').pop();
+  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/moments-photos/${fileName}`, {
+    method:  'POST',
+    headers: {
+      'apikey':        SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type':  file.type
+    },
+    body: file
+  });
+  if (!res.ok) throw new Error('Error al subir la foto');
+  return `${SUPABASE_URL}/storage/v1/object/public/moments-photos/${fileName}`;
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+document.addEventListener('DOMContentLoaded', async () => {
   generateStars();
   initCursor();
   initScrollReveal();
   initNav();
-  loadData();
-  renderAll();
   initPropuesta();
+  renderCartas();          // las cartas son estáticas
+  showLoadingState();
+  await loadData();
+  renderAll();
 });
 
-// ══════════════════════════════════════
+function showLoadingState() {
+  document.getElementById('bookShelf').innerHTML    = '<div class="books-empty" style="opacity:0.5;">Cargando libros... ✦</div>';
+  document.getElementById('timelineContainer').innerHTML = '<div class="timeline-line"></div>';
+}
+
+// ═══════════════════════════════════════
+// DATA — Supabase CRUD
+// ═══════════════════════════════════════
+
+async function loadData() {
+  try {
+    const [booksData, momentsData] = await Promise.all([
+      sbFetch('books?select=*&order=created_at.asc'),
+      sbFetch('moments?select=*&order=created_at.asc')
+    ]);
+    // Mapeamos snake_case → camelCase para no tocar el resto del código
+    books   = booksData.map(mapBook);
+    moments = momentsData.map(mapMoment);
+  } catch (e) {
+    console.error('Error cargando datos:', e);
+    showToast('Error de conexión. Verificá el URL/Key de Supabase.');
+    books = []; moments = [];
+  }
+}
+
+// Mapea fila DB → objeto usado en la UI
+function mapBook(row) {
+  return {
+    id:      row.id,
+    title:   row.title,
+    author:  row.author,
+    coverId: row.cover_id,
+    status:  row.status,
+    page:    row.page,
+    rating:  row.rating,
+    comment: row.comment,
+    addedAt: row.added_at
+  };
+}
+function mapMoment(row) {
+  return {
+    id:    row.id,
+    title: row.title,
+    date:  row.date,
+    desc:  row.desc,
+    photo: row.photo_url   // URL pública de Storage (o null)
+  };
+}
+
+// ── Books CRUD ────────────────────────────────────────────────────────────────
+async function dbInsertBook(data) {
+  const rows = await sbFetch('books', {
+    method: 'POST',
+    body: JSON.stringify({
+      title:    data.title,
+      author:   data.author,
+      cover_id: data.coverId || null,
+      status:   data.status,
+      page:     data.page || null,
+      rating:   data.rating || 0,
+      comment:  data.comment || null,
+      added_at: data.addedAt
+    })
+  });
+  return mapBook(rows[0]);
+}
+async function dbUpdateBook(id, data) {
+  const rows = await sbFetch(`books?id=eq.${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      status:  data.status,
+      page:    data.page || null,
+      rating:  data.rating || 0,
+      comment: data.comment || null
+    })
+  });
+  return mapBook(rows[0]);
+}
+async function dbDeleteBook(id) {
+  await sbFetch(`books?id=eq.${id}`, { method: 'DELETE' });
+}
+
+// ── Moments CRUD ──────────────────────────────────────────────────────────────
+async function dbInsertMoment(data) {
+  const rows = await sbFetch('moments', {
+    method: 'POST',
+    body: JSON.stringify({
+      title:     data.title,
+      date:      data.date || null,
+      desc:      data.desc || null,
+      photo_url: data.photo || null
+    })
+  });
+  return mapMoment(rows[0]);
+}
+async function dbUpdateMoment(id, data) {
+  const rows = await sbFetch(`moments?id=eq.${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      title:     data.title,
+      date:      data.date || null,
+      desc:      data.desc || null,
+      photo_url: data.photo || null
+    })
+  });
+  return mapMoment(rows[0]);
+}
+async function dbDeleteMoment(id, photoUrl) {
+  // Borramos la foto del Storage si existe
+  if (photoUrl) {
+    const path = photoUrl.split('/moments-photos/')[1];
+    if (path) {
+      await fetch(`${SUPABASE_URL}/storage/v1/object/moments-photos/${path}`, {
+        method: 'DELETE',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+    }
+  }
+  await sbFetch(`moments?id=eq.${id}`, { method: 'DELETE' });
+}
+
+function renderAll() {
+  renderTimeline();
+  renderBooks();
+}
+
+// ═══════════════════════════════════════
 // STARS
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
 function generateStars() {
   const container = document.getElementById('stars');
   for (let i = 0; i < 140; i++) {
@@ -44,9 +231,9 @@ function generateStars() {
   }
 }
 
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
 // CURSOR
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
 function initCursor() {
   const cursor = document.getElementById('cursor');
   const ring   = document.getElementById('cursorRing');
@@ -63,9 +250,9 @@ function initCursor() {
   })();
 }
 
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
 // NAV
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
 function initNav() {
   const nav = document.getElementById('mainNav');
   window.addEventListener('scroll', () => {
@@ -75,9 +262,9 @@ function initNav() {
   });
 }
 
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
 // SCROLL REVEAL
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
 function initScrollReveal() {
   const observer = new IntersectionObserver(entries => {
     entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
@@ -88,28 +275,9 @@ function initScrollReveal() {
   });
 }
 
-// ══════════════════════════════════════
-// DATA
-// ══════════════════════════════════════
-function loadData() {
-  try {
-    books   = JSON.parse(localStorage.getItem('sofi_books')   || '[]');
-    moments = JSON.parse(localStorage.getItem('sofi_moments') || '[]');
-  } catch(e) { books = []; moments = []; }
-}
-function saveData() {
-  localStorage.setItem('sofi_books',   JSON.stringify(books));
-  localStorage.setItem('sofi_moments', JSON.stringify(moments));
-}
-function renderAll() {
-  renderTimeline();
-  renderBooks();
-  renderCartas();
-}
-
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
 // ADMIN
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
 function openAdminLogin() {
   if (isAdmin) { logoutAdmin(); return; }
   openModal('adminModal');
@@ -141,9 +309,9 @@ function logoutAdmin() {
   renderBooks();
 }
 
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
 // TOAST
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
 function showToast(msg) {
   const t = document.createElement('div');
   t.style.cssText = `
@@ -162,9 +330,9 @@ function showToast(msg) {
   setTimeout(() => t.remove(), 2500);
 }
 
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
 // MODALS
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
 function openModal(id) {
   document.getElementById(id).classList.add('active');
   document.body.style.overflow = 'hidden';
@@ -181,65 +349,104 @@ document.addEventListener('click', e => {
   }
 });
 
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
 // TIMELINE
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
 function openAddMoment() {
-  momentToEdit = null; momentPhotoData = null;
+  momentToEdit = null; momentPhotoFile = null; momentPhotoData = null;
   document.getElementById('momentTitle').value = '';
-  document.getElementById('momentDate').value = '';
-  document.getElementById('momentDesc').value = '';
+  document.getElementById('momentDate').value  = '';
+  document.getElementById('momentDesc').value  = '';
   document.getElementById('momentPhotoPreview').innerHTML = '<span style="font-size:2rem;">📸</span><span>Subir foto</span>';
   document.getElementById('momentModalTitle').textContent = 'Nuevo Momento';
   openModal('momentModal');
 }
 function editMoment(id) {
-  momentToEdit = moments.find(m => m.id === id);
+  momentToEdit = moments.find(m => m.id == id);
   if (!momentToEdit) return;
+  momentPhotoFile = null;
+  momentPhotoData = momentToEdit.photo || null;
   document.getElementById('momentTitle').value = momentToEdit.title || '';
-  document.getElementById('momentDate').value = momentToEdit.date || '';
-  document.getElementById('momentDesc').value = momentToEdit.desc || '';
+  document.getElementById('momentDate').value  = momentToEdit.date  || '';
+  document.getElementById('momentDesc').value  = momentToEdit.desc  || '';
   if (momentToEdit.photo) {
-    momentPhotoData = momentToEdit.photo;
     document.getElementById('momentPhotoPreview').innerHTML = `<img src="${momentToEdit.photo}" style="max-height:120px;max-width:100%;">`;
   } else {
-    momentPhotoData = null;
     document.getElementById('momentPhotoPreview').innerHTML = '<span style="font-size:2rem;">📸</span><span>Subir foto</span>';
   }
   document.getElementById('momentModalTitle').textContent = '✎ Editar momento';
   openModal('momentModal');
 }
+
+// Preview local ANTES de subir — guarda el File, no el base64
 function previewMomentPhoto(input) {
   const file = input.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    momentPhotoData = e.target.result;
-    document.getElementById('momentPhotoPreview').innerHTML = `<img src="${momentPhotoData}" style="max-height:120px;max-width:100%;">`;
-  };
-  reader.readAsDataURL(file);
+  momentPhotoFile = file;   // guardamos el File para subirlo al guardar
+  const url = URL.createObjectURL(file);
+  document.getElementById('momentPhotoPreview').innerHTML = `<img src="${url}" style="max-height:120px;max-width:100%;">`;
 }
-function saveMoment() {
+
+async function saveMoment() {
   const title = document.getElementById('momentTitle').value.trim();
   const date  = document.getElementById('momentDate').value.trim();
   const desc  = document.getElementById('momentDesc').value.trim();
   if (!title) { showToast('Escribí un título 💜'); return; }
-  if (momentToEdit) {
-    momentToEdit.title = title; momentToEdit.date = date; momentToEdit.desc = desc;
-    if (momentPhotoData) momentToEdit.photo = momentPhotoData;
-    showToast('Momento actualizado ✎');
-  } else {
-    moments.push({ id: Date.now(), title, date, desc, photo: momentPhotoData });
-    showToast('Momento guardado 💜');
+
+  // Deshabilitamos el botón para evitar doble clic
+  const btn = document.querySelector('#momentModal .btn-primary');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  try {
+    let photoUrl = momentPhotoData;   // URL existente o null
+
+    // Si hay un archivo nuevo, lo subimos primero
+    if (momentPhotoFile) {
+      const oldUrl = momentToEdit ? momentToEdit.photo : null;
+      photoUrl = await uploadPhoto(momentPhotoFile, oldUrl);
+    }
+
+    const payload = { title, date, desc, photo: photoUrl };
+
+    if (momentToEdit) {
+      const updated = await dbUpdateMoment(momentToEdit.id, payload);
+      const idx = moments.findIndex(m => m.id == momentToEdit.id);
+      if (idx !== -1) moments[idx] = updated;
+      showToast('Momento actualizado ✎');
+    } else {
+      const created = await dbInsertMoment(payload);
+      moments.push(created);
+      showToast('Momento guardado 💜');
+    }
+
+    renderTimeline();
+    closeModal('momentModal');
+    momentToEdit = null;
+  } catch (e) {
+    console.error(e);
+    showToast('Error al guardar el momento 😞');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Guardar momento';
   }
-  saveData(); renderTimeline(); closeModal('momentModal'); momentToEdit = null;
 }
-function deleteMoment(id) {
+
+async function deleteMoment(id) {
   if (!isAdmin) return;
   if (!confirm('¿Eliminar este momento?')) return;
-  moments = moments.filter(m => m.id !== id);
-  saveData(); renderTimeline(); showToast('Momento eliminado');
+  const m = moments.find(x => x.id == id);
+  try {
+    await dbDeleteMoment(id, m ? m.photo : null);
+    moments = moments.filter(x => x.id != id);
+    renderTimeline();
+    showToast('Momento eliminado');
+  } catch (e) {
+    console.error(e);
+    showToast('Error al eliminar el momento');
+  }
 }
+
 function renderTimeline() {
   const container = document.getElementById('timelineContainer');
   const empty     = document.getElementById('timelineEmpty');
@@ -271,9 +478,9 @@ function renderTimeline() {
   container.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 }
 
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
 // BOOKS
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
 function openBookModal() {
   bookToEdit = null; selectedBook = null; currentRating = 0;
   document.getElementById('bookSearchInput').value = '';
@@ -281,15 +488,15 @@ function openBookModal() {
   document.getElementById('bookSearchResults').classList.remove('active');
   document.getElementById('bookSelectedPreview').style.display = 'none';
   document.getElementById('bookForm').style.display = 'none';
-  document.getElementById('bookPage').value = '';
+  document.getElementById('bookPage').value    = '';
   document.getElementById('bookComment').value = '';
-  document.getElementById('bookStatus').value = 'done';
+  document.getElementById('bookStatus').value  = 'done';
   updateStarsUI(0);
   document.getElementById('bookModalTitle').textContent = 'Agregar un libro';
   openModal('bookModal');
 }
 function editBook(id) {
-  bookToEdit = books.find(b => b.id === id);
+  bookToEdit = books.find(b => b.id == id);
   if (!bookToEdit) return;
   selectedBook = { title: bookToEdit.title, author: bookToEdit.author, coverId: bookToEdit.coverId };
   currentRating = bookToEdit.rating || 0;
@@ -297,8 +504,7 @@ function editBook(id) {
   document.getElementById('bookSearchResults').innerHTML = '';
   document.getElementById('bookSearchResults').classList.remove('active');
   document.getElementById('bookModalTitle').textContent = '✎ Editar libro';
-  const preview = document.getElementById('bookSelectedPreview');
-  document.getElementById('selectedTitle').textContent = bookToEdit.title;
+  document.getElementById('selectedTitle').textContent  = bookToEdit.title;
   document.getElementById('selectedAuthor').textContent = bookToEdit.author;
   if (bookToEdit.coverId) {
     document.getElementById('selectedCover').src = `https://covers.openlibrary.org/b/id/${bookToEdit.coverId}-M.jpg`;
@@ -306,9 +512,9 @@ function editBook(id) {
   } else {
     document.getElementById('selectedCover').style.display = 'none';
   }
-  preview.style.display = 'flex';
-  document.getElementById('bookStatus').value = bookToEdit.status || 'done';
-  document.getElementById('bookPage').value = bookToEdit.page || '';
+  document.getElementById('bookSelectedPreview').style.display = 'flex';
+  document.getElementById('bookStatus').value  = bookToEdit.status  || 'done';
+  document.getElementById('bookPage').value    = bookToEdit.page    || '';
   document.getElementById('bookComment').value = bookToEdit.comment || '';
   updateStarsUI(currentRating);
   document.getElementById('bookForm').style.display = 'block';
@@ -324,7 +530,7 @@ async function searchBook() {
     const res  = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=8&fields=key,title,author_name,cover_i,first_publish_year`);
     const data = await res.json();
     renderBookResults(data.docs || []);
-  } catch(e) {
+  } catch (e) {
     resultsEl.innerHTML = '<div class="bsr-item" style="opacity:0.6;">Sin conexión — ingresá los datos manualmente</div>';
     showManualBookEntry(q);
   }
@@ -333,7 +539,7 @@ function renderBookResults(docs) {
   const el = document.getElementById('bookSearchResults');
   if (!docs.length) { el.innerHTML = '<div class="bsr-item" style="opacity:0.6;">Sin resultados. Probá otro título.</div>'; return; }
   el.innerHTML = docs.map(d => {
-    const cover = d.cover_i ? `<img src="https://covers.openlibrary.org/b/id/${d.cover_i}-S.jpg" alt="Portada">` : `<div class="bsr-noimg">📖</div>`;
+    const cover  = d.cover_i ? `<img src="https://covers.openlibrary.org/b/id/${d.cover_i}-S.jpg" alt="Portada">` : `<div class="bsr-noimg">📖</div>`;
     const author = d.author_name ? d.author_name[0] : 'Autor desconocido';
     const year   = d.first_publish_year ? ` · ${d.first_publish_year}` : '';
     return `<div class="bsr-item" onclick="selectBook('${escapeAttr(d.title)}', '${escapeAttr(author)}', ${d.cover_i || 0})">
@@ -345,7 +551,7 @@ function renderBookResults(docs) {
 function escapeAttr(str) { return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
 function selectBook(title, author, coverId) {
   selectedBook = { title, author, coverId };
-  const preview = document.getElementById('bookSelectedPreview');
+  const preview  = document.getElementById('bookSelectedPreview');
   const coverImg = document.getElementById('selectedCover');
   document.getElementById('selectedTitle').textContent  = title;
   document.getElementById('selectedAuthor').textContent = author;
@@ -367,24 +573,43 @@ function setRating(val) { currentRating = val; updateStarsUI(val); }
 function updateStarsUI(val) {
   document.querySelectorAll('.star-btn').forEach((s, i) => s.classList.toggle('active', i < val));
 }
-function saveBook() {
+async function saveBook() {
   if (!selectedBook) { showToast('Seleccioná un libro primero 💜'); return; }
   const status  = document.getElementById('bookStatus').value;
   const page    = document.getElementById('bookPage').value.trim();
   const comment = document.getElementById('bookComment').value.trim();
-  if (bookToEdit) {
-    bookToEdit.status = status; bookToEdit.page = page;
-    bookToEdit.comment = comment; bookToEdit.rating = currentRating;
-    showToast(`"${bookToEdit.title}" actualizado ✎`);
-  } else {
-    books.push({
-      id: Date.now(), title: selectedBook.title, author: selectedBook.author,
-      coverId: selectedBook.coverId, status, page, comment, rating: currentRating,
-      addedAt: new Date().toLocaleDateString('es-GT', { month: 'long', year: 'numeric' })
-    });
-    showToast(`"${selectedBook.title}" guardado 📚`);
+
+  const btn = document.querySelector('#bookModal .btn-primary');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  try {
+    if (bookToEdit) {
+      const updated = await dbUpdateBook(bookToEdit.id, { status, page, comment, rating: currentRating });
+      const idx = books.findIndex(b => b.id == bookToEdit.id);
+      if (idx !== -1) books[idx] = updated;
+      showToast(`"${bookToEdit.title}" actualizado ✎`);
+    } else {
+      const created = await dbInsertBook({
+        title:   selectedBook.title,
+        author:  selectedBook.author,
+        coverId: selectedBook.coverId,
+        status, page, comment,
+        rating:  currentRating,
+        addedAt: new Date().toLocaleDateString('es-GT', { month: 'long', year: 'numeric' })
+      });
+      books.push(created);
+      showToast(`"${selectedBook.title}" guardado 📚`);
+    }
+    renderBooks();
+    closeModal('bookModal');
+  } catch (e) {
+    console.error(e);
+    showToast('Error al guardar el libro 😞');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Guardar en mi bitácora';
   }
-  saveData(); renderBooks(); closeModal('bookModal');
 }
 function renderBooks() {
   const shelf = document.getElementById('bookShelf');
@@ -405,7 +630,7 @@ function renderBooks() {
   }).join('');
 }
 function openBookDetail(id) {
-  const b = books.find(x => x.id === id);
+  const b = books.find(x => x.id == id);
   if (!b) return;
   const cover = b.coverId
     ? `<div class="bd-cover"><img src="https://covers.openlibrary.org/b/id/${b.coverId}-L.jpg" alt="${b.title}"></div>`
@@ -433,17 +658,25 @@ function openBookDetail(id) {
   openModal('bookDetailModal');
 }
 function closeModalAndEdit(id) { closeModal('bookDetailModal'); setTimeout(() => editBook(id), 100); }
-function deleteBook(id) {
+async function deleteBook(id) {
   if (!isAdmin) return;
-  const b = books.find(x => x.id === id);
+  const b = books.find(x => x.id == id);
   if (!b || !confirm(`¿Eliminar "${b.title}"?`)) return;
-  books = books.filter(b => b.id !== id);
-  saveData(); renderBooks(); closeModal('bookDetailModal'); showToast('Libro eliminado');
+  try {
+    await dbDeleteBook(id);
+    books = books.filter(b => b.id != id);
+    renderBooks();
+    closeModal('bookDetailModal');
+    showToast('Libro eliminado');
+  } catch (e) {
+    console.error(e);
+    showToast('Error al eliminar el libro');
+  }
 }
 
-// ══════════════════════════════════════
-// CARTAS
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
+// CARTAS (estáticas — no cambian)
+// ═══════════════════════════════════════
 const cartasData = [
   {
     id: 1, date: 'Para abrir ahora', title: 'La carta del primer día',
@@ -539,13 +772,12 @@ function openLetter(id) {
 }
 function lockedLetter() { showToast('💜 Esta carta tiene su momento especial...'); }
 
-// ══════════════════════════════════════
-// PROPUESTA — La pregunta
-// ══════════════════════════════════════
+// ═══════════════════════════════════════
+// PROPUESTA
+// ═══════════════════════════════════════
 function initPropuesta() {
-  // Spawn floating hearts/petals
   const section = document.getElementById('propuesta');
-  const petals = ['💜','🌸','✨','💫','🌷','💜','💜'];
+  const petals  = ['💜','🌸','✨','💫','🌷','💜','💜'];
   for (let i = 0; i < 18; i++) {
     const p = document.createElement('span');
     p.className = 'petal-float';
@@ -560,13 +792,10 @@ function initPropuesta() {
     section.insertBefore(p, section.firstChild);
   }
 }
-
 function sayYes() {
   document.getElementById('propuestaQuestion').style.display = 'none';
   const response = document.getElementById('propuestaResponse');
   response.classList.add('visible');
-
-  // Burst of extra hearts
   const section = document.getElementById('propuesta');
   for (let i = 0; i < 12; i++) {
     const h = document.createElement('span');
@@ -583,15 +812,12 @@ function sayYes() {
   }
   showToast('💜💜💜');
 }
-
 function runAway(btn) {
-  // Make the "no" button run away from the cursor
   const margin = 80;
-  const maxX = window.innerWidth - margin;
+  const maxX = window.innerWidth  - margin;
   const maxY = window.innerHeight - margin;
   const newX = margin + Math.random() * (maxX - margin);
   const newY = margin + Math.random() * (maxY - margin);
-
   if (!btn.classList.contains('running')) {
     btn.classList.add('running');
     btn.style.position = 'fixed';
